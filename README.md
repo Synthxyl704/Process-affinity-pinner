@@ -1,9 +1,4 @@
-# Process-Affinity
-Hand over CPU affinity to processes in linux (only) with cache topologies and suggestions.
-
----
-
-# Cache Affinity
+# Process + Cache Affinity
 
 CPU Affinity Pin with Cache Topology Awareness for Linux/POSIX x86-64 systems.
 
