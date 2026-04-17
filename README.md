@@ -1,52 +1,81 @@
-# [ process + cache ] affinity
+# # Cache + NUMA // Process Affinity Mapper
+> Pin processes to CPU cache domains on Linux x86-64 systems, with NUMA awareness.
+Sometimes you want your process to stay close to its cache — not out of sentiment, but because L3 misses cost real cycles. This tool maps processes to the right cores based on the machine's actual cache topology.
 
-CPU Affinity Pin with Cache Topology Awareness for Linux/POSIX x86-64 systems.
-
-A CPU affinity tool that pins processes to cache domains (L1I, L1D, L2, L3) rather than individual cores. It reads Linux sysfs to map which cores share which cache levels.
-
-- cli.py - CLI entry point with commands: show, pin, unpin, suggest
-- src/topology.py - Discovers cache topology from Linux (VFS) sysfs (/sys/devices/system/cpu/)
-- src/pinner.py - Process pinning logic to systemc cores using `taskset`
-
-## Commands
-
+Run it directly (only way):
 ```bash
-# Show cache topology
-python cli.py show
+python main.py <command> [options]
+```
+## Commands list
+| Command | Description |
+|---------|-------------|
+| `show` | Display your system's cache topology |
+| `pin` | Pin the process to a cache level or core |
+| `unpin` | Reset the process affinity to all cores |
+| `suggest` | Suggest optimal cores for a process along with manual review! |
 
-# Show cache + NUMA topology
-python cli.py show --numa
+### `show` - displays your system's cache topology
+```bash
+python main.py show
+python main.py show --numa    # includes NUMA nodes
+```
+### `pin` - pin a process / PID to a cache level or core
+```bash
+python main.py pin --pid <PID> --level L2
+python main.py pin --pid <PID> --core 7
+```
+> [!NOTE]
+> L1 comes in two flavors: L1I (instruction) and L1D (data).
+> Some systems expose both, some only one.
+> If `--level L1` doesn't work, try `--level L1D`.
 
-# Pin process to L2 cache domain
-python cli.py pin --pid 1234 --level L2
+### unpin - reset that process's affinity to all available cores
+```bash
+python main.py unpin --pid <PID>
+```
+### suggest — get good cache placement recommendations
+```bash
+python main.py suggest --pid <PID>
+python main.py suggest --pid <PID> -v    # verbose
+```
+**Verbose mode `[-v]` shows**:
+- Split/Cross-domain warnings (when process spans multiple cache domains)
+- And suggestions like: 
+- `CONSOLIDATE` (cross-domain)
+- `EXPAND` (process is subset in a domain)
+- `OPTIMAL` (self-explanatory) placement
 
-# Pin process to specific core
-python cli.py pin --pid 1234 --core 7
+## How 2 actually use?
+```bash
+# step 1: find your target process
+ps aux | grep "xX_69420_my_pro_app_Xx"
 
-# Unpin (reset to all cores)
-python cli.py unpin --pid 1234
+# step 2: check what cache topology you're working with
+python main.py show
 
-# Suggest optimal cores for process
-python cli.py suggest --pid 1234
+# step 3: now pin it to your desired cache, for example L2 cache
+python main.py pin --pid 6767 --level L2
 
-# Verbose suggestions
-python cli.py suggest --pid 1234 -v
+# step 4: check if the (cache) placement is optimal for that process
+python main.py suggest --pid 6767 -v
+
+# WARNING: step 4's dump might be a bit large
 ```
 
-## Quick Examples
+## Extra - Project existence reason
+CPU caches are not evenly shared on a computer. <br>
+On most x86-64 machines, cores 0-3 share an L2, cores 4-7 share another, and so on (depends). <br>
+Pinning a process to "all cores" means it jumps between cache domains, trashing the L3 every time is not something that one might want especially in benchmarking, etc. <br>
+So this tool lets you pin a process to a single cache domain - so it stays in cache, and your NUMA node if you're on a multi-socket machine.
 
-```bash
-# Find a target PID
-ps aux | grep python
+## Requirements
+- Linux (ONLY)
+- x86-64 (Intel/AMD)
+- Python 3.10+
+- Root (or `CAP_SYS_NICE`) to change affinity
+- Taskset utility
 
-# Check cache topology
-python cli.py show
-# L2: Domain 0: cores [0, 1]
-
-# Pin to L2 cache
-python cli.py pin --pid 12345 --level L2
-
-# Verify
-python cli.py suggest --pid 12345 -v
-```
+> [!WARN]
+> You need permissions to set CPU affinity sometimes.
+> On most systems, this means running as root or having `CAP_SYS_NICE`.
 
