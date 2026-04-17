@@ -47,7 +47,7 @@ python main.py suggest --pid <PID> -v    # verbose
 ## How 2 actually use?
 ```bash
 # step 1: find your target process
-ps aux | grep "xX_69420_my_pro_app_Xx"
+ps aux | grep "xX_69420_7T1AMAT_GAMER__Xx"
 
 # step 2: check what cache topology you're working with
 python main.py show
