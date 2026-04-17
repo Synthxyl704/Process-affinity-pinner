@@ -8,80 +8,164 @@ from src.pinner import (
     getCurrentProcessAffinity,
     suggestOptimization,
     unpinProcessFromCacheLevel,
-)
+);
+
+_RESET   = "\033[0m";
+_BOLD    = "\033[1m";
+_DIM     = "\033[2m";
+_MAGENTA = "\033[35m";
+_CYAN    = "\033[36m";
+_GREEN   = "\033[32m";
+_YELLOW  = "\033[33m";
+_RED     = "\033[31m";
+_BLUE    = "\033[34m";
+
+
+def _tree(label: str, children: List[tuple], prefix: str = ""):
+    print(f"{prefix}{label}");
+    for i, (text, subs) in enumerate(children):
+        is_last_child = (i == len(children) - 1);
+        connector     = "└──" if is_last_child else "├──";
+        trunk         = "   " if is_last_child else "│  ";
+        print(f"{prefix}{connector} {text}");
+        for j, sub in enumerate(subs):
+            is_last_sub  = (j == len(subs) - 1);
+            sub_connector = "└" if is_last_sub else "├";
+            print(f"{prefix}{trunk}{_DIM}│{_RESET}  {_DIM}{sub_connector}{_RESET} {sub}");
+
 
 def showUserTheirTopologies(args):
-    cacheTopology: Dict[str, Dict[int, List[int]]]  = getCacheTopology();
-    print(f"[# - Your cache topology - #]");
+    cacheTopology: Dict[str, Dict[int, List[int]]] = getCacheTopology();
 
-    for cacheLevelKey in ["L1", "L2", "L3"]:
-        if cacheLevelKey in cacheTopology:
-            print(f"\n{cacheLevelKey}:");
-            for domainId, CPUs in cacheTopology[cacheLevelKey].items():
-                print(f"  Domain {domainId}: cores {CPUs}");
+    levels = [k for k in ["L1", "L2", "L3"] if k in cacheTopology];
+    children: List[tuple] = [];
+
+    for cacheLevelKey in levels:
+        domains = list(cacheTopology[cacheLevelKey].items());
+        subs = [
+            f"domain {domainId}  {_DIM}->{_RESET}  {_CYAN}cores{_RESET} {CPUs}"
+            for domainId, CPUs in domains
+        ];
+        children.append((f"{_BOLD}{_MAGENTA}{cacheLevelKey}{_RESET}", subs));
+
+    print();
+    _tree(f"{_BOLD}{_CYAN}┌── [CACHE] topology{_RESET}", children);
+    print();
 
     if args.numa:
-        NUMA_TOPOLOGY: Dict[int, List[int]] = getNumaTopology()
-        print("\n[# - Your NUMA topology - #]");
-        for nodeId, CPUs in sorted(NUMA_TOPOLOGY.items()):
-            print(f"  Node {nodeId}: cores {CPUs}");
+        NUMA_TOPOLOGY: Dict[int, List[int]] = getNumaTopology();
+        numa_children: List[tuple] = [
+            (
+                f"node {nodeId}  {_DIM}->{_RESET}  {_CYAN}cores{_RESET} {CPUs}",
+                [],
+            )
+            for nodeId, CPUs in sorted(NUMA_TOPOLOGY.items())
+        ];
+        _tree(f"{_BOLD}{_CYAN}┌── [NUMA] topology{_RESET}", numa_children);
+        print();
+
 
 def commandPin(args):
     if not args.pid:
-        print("[ERROR]: --pid (process ID) is required")
+        print(f"\n┌── {_RED}error{_RESET}");
+        print(f"└── --pid (process ID) is required\n");
         sys.exit(1);
 
     if args.level:
         processSuccessStatus: bool = pinToCacheLevel(args.pid, args.level);
+        if processSuccessStatus == 0 or processSuccessStatus:
+            print(f"\n┌── {_GREEN}pinned{_RESET}");
+            print(f"├── pid    {args.pid}");
+            print(f"└── level  {_CYAN}{args.level}{_RESET}\n");
         sys.exit(0 if (processSuccessStatus == 0 or processSuccessStatus) else 1);
 
     if args.core:
         from src.pinner import pinProcessToCacheLevel;
-
         processSuccessStatus: bool = pinProcessToCacheLevel(args.pid, [args.core]);
+        if processSuccessStatus == 0 or processSuccessStatus:
+            print(f"\n┌── {_GREEN}pinned{_RESET}");
+            print(f"├── pid   {args.pid}");
+            print(f"└── core  {_CYAN}{args.core}{_RESET}\n");
         sys.exit(0 if (processSuccessStatus == 0 or processSuccessStatus) else 1);
 
-    print("[ERROR]: specify --level or --core");
+    print(f"\n┌── {_RED}error{_RESET}");
+    print(f"└── specify --level or --core\n");
     sys.exit(1);
+
 
 def commandSuggest(args):
     if not args.pid:
-        print("[ERROR]: --pid (process ID) is required")
-        sys.exit(1)
-
-    currentAffinityCores: List[int] = getCurrentProcessAffinity(args.pid);
-
-    if currentAffinityCores is None:
-        print(f"[ERROR]: could not get affinity for PID {args.pid}");
+        print(f"\n┌── {_RED}error{_RESET}");
+        print(f"└── --pid (process ID) is required\n");
         sys.exit(1);
 
-    print(f"Current PID affinity: cores {currentAffinityCores}");
+    currentAffinityCores: List[int] = getCurrentProcessAffinity(args.pid);
+    if currentAffinityCores is None:
+        print(f"\n┌── {_RED}error{_RESET}");
+        print(f"└── could not read affinity for PID {args.pid}\n");
+        sys.exit(1);
+
+    print(f"\n┌── {_CYAN}pid {args.pid}{_RESET}");
+    print(f"└── cores  {_GREEN}{currentAffinityCores}{_RESET}");
+
     if args.verbose:
         result: Dict | None = suggestOptimization(args.pid);
         if result:
-            print(f"\nSuggestions:");
-            for aSuggestion in result["suggestions"]:
-                status = "OPTIMAL" if aSuggestion["optimal"] else "SUBOPTIMAL";
-                print(f"  {aSuggestion['level']}: {aSuggestion['cores']} ({status})")
+            items: List[tuple] = [];
+
+            if result.get("splitWarnings"):
+                for warn in result["splitWarnings"]:
+                    subs = [
+                        f"domains  {warn['spannedDomains']}",
+                        f"{_DIM}{warn['reason']}{_RESET}",
+                    ];
+                    items.append((f"{_YELLOW}warning{_RESET}  {warn['level']}", subs));
+
+            for s in result["suggestions"]:
+                tag = {
+                    "optimal":         f"{_GREEN}OPTIMAL{_RESET} ",
+                    "expand":          f"{_CYAN}EXPAND{_RESET}  ",
+                    "consolidate":     f"{_MAGENTA}NARROW{_RESET}  ",
+                    "partial_overlap": f"{_YELLOW}PARTIAL{_RESET} ",
+                }.get(s["type"], s["type"].ljust(8));
+                subs = [
+                    f"cores  {s['cores']}",
+                    f"{_DIM}{s['reason']}{_RESET}",
+                ];
+                items.append((f"{tag} {s['level']}", subs));
+
+            print();
+            _tree(f"┌── {_BOLD}suggestions{_RESET}", items);
+
+    print();
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CPU Affinity Pinning with cool Cache Topology Awareness",
+        description="CPU affinity pinning of processes/PIDs with cool cache topology awareness",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        usage="%(prog)s <command> [options]",
         epilog="""
-Examples:
-  python main.py show                # show ONLY cache topology
-  python main.py show --numa         # show BOTH cache + NUMA topology
-  python main.py pin 67 --level L2   # pin PID to the L2 cache domain
-  python main.py pin 67 --core 7     # pin an unpinned PID to a specific core
-  python main.py unpin 67            # unpin a PID from a previously pinned core (it will use all cores)
-  python main.py suggest 67          # will suggest you the optimal cores to pin the PID to
-  python main.py suggest 67 -v       # verbose suggestions for nerds
+┌── [COMMANDS]:
+├── show     display cache topology
+├── pin      pin process to cache level or core
+├── suggest  suggest optimal cores for a process
+└── unpin    unpin process (reset to all cores)
+
+┌── [EXAMPLES]:
+├── python main.py show
+├── python main.py show --numa
+├── python main.py pin --pid 67 --level L2 
+├── ^^^ (NOTE, if pinning PID to L1 or  simply "--level L1" will NOT work (despite the program saying otherwise), use "--level L1I" or "--level L1D" instead!)
+├── python main.py pin --pid 67 --core 7
+├── python main.py unpin --pid 67
+├── python main.py suggest --pid 67
+└── python main.py suggest --pid 67 -v
         """,
     );
 
     subparsers = parser.add_subparsers(dest="command", required=True);
-    showParser = subparsers.add_parser("show", help="Show cache topology");
+    showParser = subparsers.add_parser("show", help="show cache topology");
     showParser.add_argument("--numa", action="store_true", help="include NUMA topology");
 
     pinParser = subparsers.add_parser("pin", help="pin process to cache level or core");
@@ -94,7 +178,7 @@ Examples:
     suggestParser.add_argument("-v", "--verbose", action="store_true", help="verbose output");
 
     unpinParser = subparsers.add_parser("unpin", help="unpin process (reset to all cores)");
-    unpinParser.add_argument("--pid", type=int, required=True, help="process ID")
+    unpinParser.add_argument("--pid", type=int, required=True, help="process ID");
 
     parsedArgs = parser.parse_args();
 
@@ -105,7 +189,11 @@ Examples:
     elif parsedArgs.command == "suggest":
         commandSuggest(parsedArgs);
     elif parsedArgs.command == "unpin":
-        success = unpinProcessFromCacheLevel(parsedArgs.pid)
+        success = unpinProcessFromCacheLevel(parsedArgs.pid);
+        if success:
+            print(f"\n┌── {_GREEN}unpinned{_RESET}");
+            print(f"├── pid   {parsedArgs.pid}");
+            print(f"└── cores {_CYAN}all{_RESET}\n");
         sys.exit(0 if success else 1);
 
 
