@@ -1,4 +1,4 @@
-# # Cache + NUMA // Process Affinity Mapper
+# Cache + NUMA // Process Affinity Mapper
 > Pin processes to CPU cache domains on x86-64 linux operating systems, aided with NUMA awareness.
 
 Run it directly (only way):
