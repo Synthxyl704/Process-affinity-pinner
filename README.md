@@ -1,6 +1,17 @@
 # Cache + NUMA // Process Affinity Mapper
 > Pin processes to CPU cache domains on x86-64 linux operating systems, aided with NUMA awareness.
 
+## Requirements
+- Linux (ONLY)
+- x86-64 (Intel/AMD)
+- Python 3.10+
+- Root (or `CAP_SYS_NICE`) to change affinity
+- Taskset utility
+
+> [!WARNING]
+> You need permissions to set CPU affinity sometimes.
+> On most systems, this means running as root or having `CAP_SYS_NICE`.
+
 Run it directly (only way):
 ```bash
 python main.py <command> [options]
@@ -61,20 +72,8 @@ python main.py suggest --pid 6767 -v
 # WARNING: step 4's dump might be a bit large
 ```
 
-## Extra - Project existence reason
+## Extra(s) - Project existence reason
 CPU caches are not evenly shared on a computer. <br>
 On most x86-64 machines, cores 0-3 share an L2, cores 4-7 share another, and so on (depends). <br>
 Pinning a process to "all cores" means it jumps between cache domains, trashing the L3 every time is not something that one might want especially in benchmarking, etc. <br>
 So this tool lets you pin a process to a single cache domain - so it stays in cache, and your NUMA node if you're on a multi-socket machine.
-
-## Requirements
-- Linux (ONLY)
-- x86-64 (Intel/AMD)
-- Python 3.10+
-- Root (or `CAP_SYS_NICE`) to change affinity
-- Taskset utility
-
-> [!WARNING]
-> You need permissions to set CPU affinity sometimes.
-> On most systems, this means running as root or having `CAP_SYS_NICE`.
-
