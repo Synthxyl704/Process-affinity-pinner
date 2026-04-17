@@ -28,11 +28,11 @@ python main.py pin --pid <PID> --core 7
 > Some systems expose both, some only one.
 > If `--level L1` doesn't work, try `--level L1D`.
 
-### unpin - reset that process's affinity to all available cores
+### `unpin` - reset that process's affinity to all available cores
 ```bash
 python main.py unpin --pid <PID>
 ```
-### suggest — get good cache placement recommendations
+### `suggest` — get good cache placement recommendations
 ```bash
 python main.py suggest --pid <PID>
 python main.py suggest --pid <PID> -v    # verbose
