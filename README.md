@@ -80,6 +80,7 @@ python main.py suggest --pid 6767 -v
 
 ## Extra(s) - Project existence reason
 CPU caches are not evenly shared on a computer. <br>
-On most x86-64 machines, cores 0-3 share an L2, cores 4-7 share another, and so on (depends). <br>
+On most x86-64 machines, cores 0-3 share an L2, cores 4-7 share another, and so on (depends). <br> Or a process can be variably assigned to different cores as part of its cache domain by the task scheduler! <br>
+
 Pinning a process to "all cores" means it jumps between cache domains, trashing the L3 every time is not something that one might want especially in benchmarking, etc. <br>
 So this tool lets you pin a process to a single cache domain - so it stays in cache, and your NUMA node if you're on a multi-socket machine.
