@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple, Optional
 _cacheTopology: Optional[Dict[str, Dict[int, List[int]]]] = None;
 _cacheTimestamp: float = 0.0;
 _cacheTTL: float = 1.0;
+
 def getTotalCPUCount() -> int:
     CPU_LIST = [];  # store the cpu[X] indices here
     # $ ls /sys/devices/system/cpu returns some directories with cpuX
@@ -231,6 +232,9 @@ def getCoresForCacheLevel(cacheLevel: str) -> List[int]:
     # cacheLevelKey = "L1D";
     cacheTopology: Dict[str, Dict[int, List[int]]] = getCacheTopology();
     cacheLevelKey = cacheLevel.upper();
+    # L1 is ambiguous for affinity pinning; default to the data cache.
+    if cacheLevelKey == "L1":
+        cacheLevelKey = "L1D";
     
     if cacheLevelKey in cacheTopology:
         cores: List[int] = [];
