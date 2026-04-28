@@ -43,7 +43,7 @@ def showUserTheirTopologies(args):
         };
         print(json.dumps(result, indent=2));
         return;
-    levels = [k for k in ["L1", "L2", "L3"] if k in cacheTopology];
+    levels = [k for k in ["L1D", "L1I", "L2", "L3"] if k in cacheTopology];
     children: List[tuple] = [];
     for cacheLevelKey in levels:
         domains = list(cacheTopology[cacheLevelKey].items());
@@ -79,8 +79,8 @@ def commandPin(args):
             print(f"└── level  {_CYAN}{args.level}{_RESET}\n");
         sys.exit(0 if (processSuccessStatus == 0 or processSuccessStatus) else 1);
     if args.core:
-        from src.pinner import pinToCacheLevel;
-        processSuccessStatus: bool = pinToCacheLevel(args.pid, [args.core]);
+        from src.pinner import pinProcessToCacheLevel;
+        processSuccessStatus: bool = pinProcessToCacheLevel(args.pid, [args.core]);
         if processSuccessStatus == 0 or processSuccessStatus:
             print(f"\n┌── {_GREEN}[PINNED]{_RESET}");
             print(f"├── pid   {args.pid}");
@@ -165,7 +165,7 @@ def main():
     showParser.add_argument("--json", action="store_true", help="JSON output");
     pinParser = subparsers.add_parser("pin", help="pin process to cache level or core");
     pinParser.add_argument("--pid", type=int, required=True, help="process ID");
-    pinParser.add_argument("--level", help="cache level (L1, L2, L3)");
+    pinParser.add_argument("--level", help="cache level (L1D, L1I, L2, L3; L1 maps to L1D)");
     pinParser.add_argument("--core", type=int, help="specific core");
     suggestParser = subparsers.add_parser("suggest", help="suggest optimal cores");
     suggestParser.add_argument("--pid", type=int, required=True, help="process ID");
