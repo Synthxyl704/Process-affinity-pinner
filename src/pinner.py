@@ -96,7 +96,7 @@ def pinProcessToCacheLevel(processID: int, coresList: List[int]) -> bool:
         print(f"[ERROR]: no cores specified/pinned for PID {processID}");
         return False;
 
-    mask:str = buildProcessorMask(coresList);
+    mask: str = buildProcessorMask(coresList);
 
     try:
         TASKSET_result = subprocess.run(
@@ -120,15 +120,34 @@ def pinProcessToCacheLevel(processID: int, coresList: List[int]) -> bool:
         return False;
 
 def pinToCacheLevel(processID: int, cacheLevel: str) -> bool:
-    processorCores: List[int] = getCoresForCacheLevel(cacheLevel); 
-    # > if youre confused
-    # > the cores are inside a processor chip  
+    cacheLevelKey: str = cacheLevel.upper();
+    if cacheLevelKey == "L1":
+        cacheLevelKey = "L1D";
 
-    if (not processorCores):
+    cacheTopology: Dict[str, Dict[int, List[int]]] = getCacheTopology();
+    domains: Dict[int, List[int]] = cacheTopology.get(cacheLevelKey, {});
+    if not domains:
         print(f"[CACHE_LEVEL_ERROR]: no cores found for cache level {cacheLevel}")
         return False;
 
-    return pinProcessToCacheLevel(processID, processorCores);
+    currentAffinity: List[int] = getCurrentProcessAffinity(processID) or [];
+    currentAffinitySet = set(currentAffinity);
+
+    chosenDomainID: int = sorted(domains.keys())[0];
+    bestOverlap: int = -1;
+    bestDomainSize: int = 10**9;
+
+    for domainID, domainCores in domains.items():
+        overlap = len(currentAffinitySet.intersection(domainCores));
+        domainSize = len(domainCores);
+        if (overlap > bestOverlap) or (overlap == bestOverlap and domainSize < bestDomainSize):
+            chosenDomainID = domainID;
+            bestOverlap = overlap;
+            bestDomainSize = domainSize;
+
+    chosenCores: List[int] = sorted(domains[chosenDomainID]);
+    print(f"[INFO]: selected {cacheLevelKey} domain {chosenDomainID} -> cores {chosenCores}");
+    return pinProcessToCacheLevel(processID, chosenCores);
 
 def unpinProcessFromCacheLevel(processID: int) -> bool:
     try:
