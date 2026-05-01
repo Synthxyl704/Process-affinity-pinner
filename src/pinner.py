@@ -13,6 +13,8 @@ def buildProcessorMask(cores: List[int]) -> str:
 
     mask: int = 0;
     for core in cores:
+        if not isinstance(core, int) or (core < 0):
+            return "0";
         # shift 01 by core positions 
         # [0, 2, 3] 
         # 1 << [0] = {0001 -> 0001}
@@ -134,8 +136,8 @@ def pinToCacheLevel(processID: int, cacheLevel: str) -> bool:
     currentAffinitySet = set(currentAffinity);
 
     chosenDomainID: int = sorted(domains.keys())[0];
-    bestOverlap: int = -1;
-    bestDomainSize: int = 10**9;
+    bestOverlap: int = (-1);
+    bestDomainSize: int = (10**9);
 
     for domainID, domainCores in domains.items():
         overlap = len(currentAffinitySet.intersection(domainCores));
