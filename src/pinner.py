@@ -132,7 +132,11 @@ def pinToCacheLevel(processID: int, cacheLevel: str) -> bool:
         print(f"[CACHE_LEVEL_ERROR]: no cores found for cache level {cacheLevel}")
         return False;
 
-    currentAffinity: List[int] = getCurrentProcessAffinity(processID) or [];
+    currentAffinity: List[int] = getCurrentProcessAffinity(processID);
+    if currentAffinity is None:
+        print(f"[CACHE_LEVEL_ERROR]: failed to retrieve affinity for process {processID}")
+        return False;
+
     currentAffinitySet = set(currentAffinity);
 
     chosenDomainID: int = sorted(domains.keys())[0];
